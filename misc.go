@@ -255,6 +255,16 @@ func postForm(ctx context.Context, client httpClient, endpoint string, values ur
 	return doPost(ctx, client, req, newJSONParser(intf), d)
 }
 
+// post to a slack web method.
+func postSlackMethod(ctx context.Context, client httpClient, path string, values url.Values, intf interface{}, d debug) error {
+	return postForm(ctx, client, APIURL+path, values, intf, d)
+}
+
+// [2018-07-28 emily] Run arbitrary command because mpim.open is not supported
+func (c *Client) PostSlack(ctx context.Context, path string, values url.Values, response interface{}) error {
+	return postSlackMethod(ctx, c.httpclient, path, values, &response, c)
+}
+
 func getResource(ctx context.Context, client httpClient, endpoint string, values url.Values, intf interface{}, d debug) error {
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {

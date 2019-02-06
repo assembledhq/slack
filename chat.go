@@ -475,7 +475,7 @@ func MsgOptionUsername(username string) MsgOption {
 func MsgOptionText(text string, escape bool) MsgOption {
 	return func(config *sendConfig) error {
 		if escape {
-			text = slackutilsx.EscapeMessage(text)
+			text = escapeMessage(text)
 		}
 		config.values.Add("text", text)
 		return nil
