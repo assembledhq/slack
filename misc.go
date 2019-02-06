@@ -210,6 +210,11 @@ func postSlackMethod(ctx context.Context, client httpClient, path string, values
 	return postForm(ctx, client, APIURL+path, values, intf, d)
 }
 
+// [2018-07-28 emily] Run arbitrary command because mpim.open is not supported
+func (c *Client) PostSlack(ctx context.Context, path string, values url.Values, response interface{}) error {
+      return postSlackMethod(ctx, c.httpclient, path, values, &response, c)
+}
+
 // get a slack web method.
 func getSlackMethod(ctx context.Context, client httpClient, path string, values url.Values, intf interface{}, d debug) error {
 	return getResource(ctx, client, APIURL+path, values, intf, d)
