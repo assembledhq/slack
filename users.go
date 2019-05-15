@@ -43,7 +43,7 @@ type UserProfile struct {
 // UserProfileCustomFields represents user profile's custom fields.
 // Slack API's response data type is inconsistent so we use the struct.
 // For detail, please see below.
-// https://github.com/nlopes/slack/pull/298#discussion_r185159233
+// https://github.com/assembledhq/slack/pull/298#discussion_r185159233
 type UserProfileCustomFields struct {
 	fields map[string]UserProfileCustomField
 }

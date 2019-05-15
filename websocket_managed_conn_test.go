@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nlopes/slack"
-	"github.com/nlopes/slack/slacktest"
+	"github.com/assembledhq/slack"
+	"github.com/assembledhq/slack/slacktest"
 	"github.com/stretchr/testify/assert"
 )
 
