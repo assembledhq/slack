@@ -168,7 +168,7 @@ func (api *Client) SendMessageContext(ctx context.Context, channelID string, opt
 		response chatResponseFull
 	)
 
-	if config, err = applyMsgOptions(api.token, channelID, options...); err != nil {
+	if config, err = applyMsgOptions(api.token, channelID, api.endpoint, options...); err != nil {
 		return "", "", "", err
 	}
 
@@ -182,14 +182,15 @@ func (api *Client) SendMessageContext(ctx context.Context, channelID string, opt
 // UnsafeApplyMsgOptions utility function for debugging/testing chat requests.
 // NOTE: USE AT YOUR OWN RISK: No issues relating to the use of this function
 // will be supported by the library.
-func UnsafeApplyMsgOptions(token, channel string, options ...MsgOption) (string, url.Values, error) {
-	config, err := applyMsgOptions(token, channel, options...)
+func UnsafeApplyMsgOptions(token, channel, apiurl string, options ...MsgOption) (string, url.Values, error) {
+	config, err := applyMsgOptions(token, channel, apiurl, options...)
 	return config.endpoint, config.values, err
 }
 
-func applyMsgOptions(token, channel string, options ...MsgOption) (sendConfig, error) {
+func applyMsgOptions(token, channel, apiurl string, options ...MsgOption) (sendConfig, error) {
 	config := sendConfig{
-		endpoint: APIURL + string(chatPostMessage),
+		apiurl:   apiurl,
+		endpoint: apiurl + string(chatPostMessage),
 		values: url.Values{
 			"token":   {token},
 			"channel": {channel},
@@ -217,6 +218,7 @@ const (
 )
 
 type sendConfig struct {
+	apiurl   string
 	endpoint string
 	values   url.Values
 }
@@ -227,7 +229,7 @@ type MsgOption func(*sendConfig) error
 // MsgOptionPost posts a messages, this is the default.
 func MsgOptionPost() MsgOption {
 	return func(config *sendConfig) error {
-		config.endpoint = APIURL + string(chatPostMessage)
+		config.endpoint = config.apiurl + string(chatPostMessage)
 		config.values.Del("ts")
 		return nil
 	}
@@ -236,7 +238,7 @@ func MsgOptionPost() MsgOption {
 // MsgOptionPostEphemeral - posts an ephemeral message to the provided user.
 func MsgOptionPostEphemeral(userID string) MsgOption {
 	return func(config *sendConfig) error {
-		config.endpoint = APIURL + string(chatPostEphemeral)
+		config.endpoint = config.apiurl + string(chatPostEphemeral)
 		MsgOptionUser(userID)(config)
 		config.values.Del("ts")
 
@@ -247,7 +249,7 @@ func MsgOptionPostEphemeral(userID string) MsgOption {
 // MsgOptionMeMessage posts a "me message" type from the calling user
 func MsgOptionMeMessage() MsgOption {
 	return func(config *sendConfig) error {
-		config.endpoint = APIURL + string(chatMeMessage)
+		config.endpoint = config.apiurl + string(chatMeMessage)
 		return nil
 	}
 }
@@ -255,7 +257,7 @@ func MsgOptionMeMessage() MsgOption {
 // MsgOptionUpdate updates a message based on the timestamp.
 func MsgOptionUpdate(timestamp string) MsgOption {
 	return func(config *sendConfig) error {
-		config.endpoint = APIURL + string(chatUpdate)
+		config.endpoint = config.apiurl + string(chatUpdate)
 		config.values.Add("ts", timestamp)
 		return nil
 	}
@@ -264,7 +266,7 @@ func MsgOptionUpdate(timestamp string) MsgOption {
 // MsgOptionDelete deletes a message based on the timestamp.
 func MsgOptionDelete(timestamp string) MsgOption {
 	return func(config *sendConfig) error {
-		config.endpoint = APIURL + string(chatDelete)
+		config.endpoint = config.apiurl + string(chatDelete)
 		config.values.Add("ts", timestamp)
 		return nil
 	}
@@ -273,7 +275,7 @@ func MsgOptionDelete(timestamp string) MsgOption {
 // MsgOptionUnfurl unfurls a message based on the timestamp.
 func MsgOptionUnfurl(timestamp string, unfurls map[string]Attachment) MsgOption {
 	return func(config *sendConfig) error {
-		config.endpoint = APIURL + string(chatUnfurl)
+		config.endpoint = config.apiurl + string(chatUnfurl)
 		config.values.Add("ts", timestamp)
 		unfurlsStr, err := json.Marshal(unfurls)
 		if err == nil {
@@ -331,6 +333,21 @@ func MsgOptionAttachments(attachments ...Attachment) MsgOption {
 		attachments, err := json.Marshal(attachments)
 		if err == nil {
 			config.values.Set("attachments", string(attachments))
+		}
+		return err
+	}
+}
+
+// MsgOptionBlocks sets blocks for the message
+func MsgOptionBlocks(blocks ...Block) MsgOption {
+	return func(config *sendConfig) error {
+		if blocks == nil {
+			return nil
+		}
+
+		blocks, err := json.Marshal(blocks)
+		if err == nil {
+			config.values.Set("blocks", string(blocks))
 		}
 		return err
 	}
@@ -401,11 +418,27 @@ func MsgOptionParse(b bool) MsgOption {
 	return func(c *sendConfig) error {
 		var v string
 		if b {
-			v = "1"
+			v = "full"
 		} else {
-			v = "0"
+			v = "none"
 		}
 		c.values.Set("parse", v)
+		return nil
+	}
+}
+
+// MsgOptionIconURL sets an icon URL
+func MsgOptionIconURL(iconURL string) MsgOption {
+	return func(c *sendConfig) error {
+		c.values.Set("icon_url", iconURL)
+		return nil
+	}
+}
+
+// MsgOptionIconEmoji sets an icon emoji
+func MsgOptionIconEmoji(iconEmoji string) MsgOption {
+	return func(c *sendConfig) error {
+		c.values.Set("icon_emoji", iconEmoji)
 		return nil
 	}
 }
@@ -505,7 +538,7 @@ func (api *Client) GetPermalinkContext(ctx context.Context, params *PermalinkPar
 		Permalink string `json:"permalink"`
 		SlackResponse
 	}{}
-	err := getSlackMethod(ctx, api.httpclient, "chat.getPermalink", values, &response, api)
+	err := api.getMethod(ctx, "chat.getPermalink", values, &response)
 	if err != nil {
 		return "", err
 	}
