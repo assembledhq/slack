@@ -3,6 +3,7 @@ package slack
 import (
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -40,10 +41,50 @@ func (h *fileCommentHandler) handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type mockHTTPClient struct{}
+
+func (m *mockHTTPClient) Do(*http.Request) (*http.Response, error) {
+	return &http.Response{StatusCode: 200, Body: ioutil.NopCloser(bytes.NewBufferString(`OK`))}, nil
+}
+
+func TestSlack_GetFile(t *testing.T) {
+	api := &Client{
+		endpoint:   "http://" + serverAddr + "/",
+		token:      "testing-token",
+		httpclient: &mockHTTPClient{},
+	}
+
+	tests := []struct {
+		title       string
+		downloadURL string
+		expectError bool
+	}{
+		{
+			title:       "Testing with valid file",
+			downloadURL: "https://files.slack.com/files-pri/T99999999-FGGGGGGGG/download/test.csv",
+			expectError: false,
+		},
+		{
+			title:       "Testing with invalid file (empty URL)",
+			downloadURL: "",
+			expectError: true,
+		},
+	}
+
+	for _, test := range tests {
+		err := api.GetFile(test.downloadURL, &bytes.Buffer{})
+
+		if !test.expectError && err != nil {
+			log.Fatalf("%s: Unexpected error: %s in test", test.title, err)
+		} else if test.expectError == true && err == nil {
+			log.Fatalf("Expected error but got none")
+		}
+	}
+}
+
 func TestSlack_DeleteFileComment(t *testing.T) {
 	once.Do(startServer)
-	APIURL = "http://" + serverAddr + "/"
-	api := New("testing-token")
+	api := New("testing-token", OptionAPIURL("http://"+serverAddr+"/"))
 	tests := []struct {
 		title       string
 		body        url.Values
@@ -126,8 +167,7 @@ func TestUploadFile(t *testing.T) {
 	http.HandleFunc("/auth.test", authTestHandler)
 	http.HandleFunc("/files.upload", uploadFileHandler)
 	once.Do(startServer)
-	APIURL = "http://" + serverAddr + "/"
-	api := New("testing-token")
+	api := New("testing-token", OptionAPIURL("http://"+serverAddr+"/"))
 	params := FileUploadParameters{
 		Filename: "test.txt", Content: "test content",
 		Channels: []string{"CXXXXXXXX"}}
@@ -155,8 +195,7 @@ func TestUploadFile(t *testing.T) {
 
 func TestUploadFileWithoutFilename(t *testing.T) {
 	once.Do(startServer)
-	APIURL = "http://" + serverAddr + "/"
-	api := New("testing-token")
+	api := New("testing-token", OptionAPIURL("http://"+serverAddr+"/"))
 
 	reader := bytes.NewBufferString("test reader")
 	params := FileUploadParameters{
